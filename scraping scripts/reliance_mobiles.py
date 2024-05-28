@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 import random
 import datetime
-
+import re
 import mysql.connector
 db_connection = mysql.connector.connect(
     host="127.0.0.1",
@@ -61,14 +61,31 @@ def get_rating(soup):
 def get_price(soup):
     pr = soup.find('span', class_='TextWeb__Text-sc-1cyx778-0 kFBgPo')
     if pr:
-        return pr.text.strip()
+        price_text = pr.text.strip()
+        p = price_text.replace('₹', '')
+        return p
     return None
+
+
 def get_deliverytime():
     today = datetime.datetime.now()
-    random_days = random.randint(2,7)
+    random_days = random.randint(2, 7)
     delivery_date = today + datetime.timedelta(days=random_days)
-    formatted_delivery_date = delivery_date.strftime("%dth %B, %A")
-    return formatted_delivery_date
+ 
+    days_from_today = (delivery_date - today).days
+
+    day = delivery_date.day
+    if 4 <= day <= 20 or 24 <= day <= 30:
+        suffix = "th"
+    else:
+        suffix = ["st", "nd", "rd"][day % 10 - 1]
+    day_with_suffix = f"{day}{suffix}"
+    
+    
+    formatted_delivery_date = delivery_date.strftime(f"{day_with_suffix} %B, %A")
+    
+    return f"{days_from_today} days"
+
 
 
 def get_condition(soup):
@@ -88,11 +105,10 @@ def get_image_url(soup):
    
 def insert_data(title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url, new_refurbished):
     try:
-        # Check if the redirect_link already exists in the table
+       
         db_cursor.execute("SELECT redirect_link FROM Mobiles WHERE redirect_link = %s", (redirect_link,))
         existing_link = db_cursor.fetchone()
-        
-        # If the link doesn't exist, proceed with the insertion
+   
         if not existing_link:
             sql = "INSERT INTO Mobiles (title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url, new_refurbished) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
             values = (title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url, new_refurbished)
@@ -125,12 +141,12 @@ def mobiles(url):
             
             if r.status_code == 200:
                 soup = BeautifulSoup(r.content, 'lxml')
-                productlist = soup.find_all('div', class_='sp')  # Change class to 'sp' instead of 'sp grid'
+                productlist = soup.find_all('div', class_='sp')
                 print(productlist)
                 for item in productlist:
-                   for link in item.find_all('a', href=True):  # Remove class check from find_all
+                   for link in item.find_all('a', href=True
                      productlink = baseurl + link['href']
-                     if productlink not in productlinks:  # Access href attribute directly
+                     if productlink not in productlinks:  
                        productlinks.append(productlink)
                        print(productlink)
                        scrape_mobile_data(productlink)
@@ -162,7 +178,7 @@ def scrape_mobile_data(productlink):
             condition = get_condition(soup)
             image_url = get_image_url(soup)  
 
-            if all([title]):
+            if all([title,price]):
                 print("Title:", title)
                 print("Rating:", rating)
                 print("Price:", price)
@@ -182,7 +198,7 @@ def scrape_mobile_data(productlink):
     
 
 def main():
-    num_pages = random.randint(1,72)
+    num_pages = random.randint(1,51)
     for _ in range(num_pages):
         i = random.randint(1, num_pages)
         if i == 1:

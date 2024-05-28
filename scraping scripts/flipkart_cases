@@ -1,10 +1,12 @@
 
 import requests
 from bs4 import BeautifulSoup
-import time
+import datetime
 import random
 import mysql.connector
-
+import re
+import time
+from datetime import datetime
 
 db_connection = mysql.connector.connect(
     host="127.0.0.1",
@@ -31,22 +33,22 @@ proxies = [
 ]
 
 user_agents = [
-    # Mozilla Firefox
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:90.0) Gecko/20100101 Firefox/90.0",
-    # Google Chrome
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-    # Apple Safari
+
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0.2 Safari/605.1.15",
-    # Microsoft Edge
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 Edg/98.0.1108.58",
-    # Opera
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 OPR/85.0.4344.41",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 OPR/85.0.4344.41",
-    # Internet Explorer
+
     "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko",
-    # Add more user agents as needed
+
 ]
 
 
@@ -69,14 +71,40 @@ def get_rating(soup):
 def get_price(soup):
     pr = soup.find('div', class_='Nx9bqj CxhGGd')
     if pr:
-        return pr.text.strip()
+        price_text = pr.text.strip()
+        p = price_text.replace('₹', '')
+        return p
     return None
+
 def get_deliverytime(soup):
     de = soup.find('span', class_='Y8v7Fl')
     if de:
-        return de.text.strip()
+        delivery_text = de.text.strip()
+        return convert_to_days_from_today(delivery_text)
     return None
 
+def convert_to_days_from_today(delivery_text):
+
+    date_pattern = re.compile(r'(\d{2}) (\w+), \w+')
+    match = date_pattern.search(delivery_text)
+    if match:
+     
+        day = int(match.group(1))
+        month = match.group(2)
+        year = datetime.now().year 
+       
+        delivery_date_str = f"{day} {month} {year}"
+        delivery_date = datetime.strptime(delivery_date_str, "%d %B %Y")
+ 
+        today = datetime.now()
+        delta = delivery_date - today
+    
+        if delta.days < 0:
+            delivery_date = datetime.strptime(f"{day} {month} {year + 1}", "%d %B %Y")
+            delta = delivery_date - today
+        
+        return f"{delta.days} days"
+    return None
 
 def get_image_url(soup):
     image_url_div = soup.find('div',class_='_4WELSP _6lpKCl')
@@ -159,8 +187,10 @@ def scrape_mobile_data(productlink):
                 print("Rating:", rating)
                 print("Price:", price)
                 print("Delivery Time:", delivery_time)
-\
+
                 print("Image URL:", image_url)
+                
+               
                 insert_data(title, productlink, 2, "Flipkart", price, rating, delivery_time, image_url)
                 break
         elif response.status_code == 500:
@@ -179,9 +209,9 @@ def main():
     for _ in range(num_pages):
         i = random.randint(1, num_pages)
         if i == 1:
-            url = "https://www.flipkart.com/search?q=mobile%20cases&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=on&as=off"
+            url = "https://www.flipkart.com/mobile-accessories/cases-and-covers/pr?sid=tyy,4mr,q2u&otracker=nmenu_sub_Electronics_0_Mobile%20Cases"
         else:
-            url = f"https://www.flipkart.com/search?q=mobile+cases&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=on&as=off&page={i}"
+            url = f"https://www.flipkart.com/mobile-accessories/cases-and-covers/pr?sid=tyy%2C4mr%2Cq2u&otracker=nmenu_sub_Electronics_0_Mobile+Cases&page={i}"
         print(url)
         print(i)
         mobiles(url)

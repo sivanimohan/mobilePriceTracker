@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 import time
 import random
 import mysql.connector
+import re
+from datetime import datetime
+
 db_connection = mysql.connector.connect(
     host="127.0.0.1",
     user="root",
@@ -58,14 +61,47 @@ def get_rating(soup):
     return None
 
 def get_price(soup):
-    pr = soup.find('span', class_='a-offscreen')
+    pr = soup.find('span', class_='a-price-whole')
     if pr:
         return pr.text.strip()
     return None
+
+
 def get_deliverytime(soup):
-    de = soup.find('div', class_='a-spacing-base',id='mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE')
+    de = soup.find('div', class_='a-spacing-base', id='mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE')
     if de:
-        return de.text.strip().replace("Details","")
+        delivery_text = de.text.strip()
+        
+        
+        delivery_text = re.sub(r'\bFREE\s*delivery\b', '', delivery_text, flags=re.IGNORECASE).strip()
+        delivery_text = re.sub(r'\bDetails\b', '', delivery_text, flags=re.IGNORECASE).strip()
+        
+        return convert_to_days_from_today(delivery_text)
+    return None
+
+def convert_to_days_from_today(delivery_text):
+  
+    date_pattern = re.compile(r'\b(\w+), (\d{2}) (\w+)\b')
+    match = date_pattern.search(delivery_text)
+    if match:
+      
+        day = int(match.group(2))
+        month = match.group(3)
+        year = datetime.now().year
+        
+
+        delivery_date_str = f"{day} {month} {year}"
+        delivery_date = datetime.strptime(delivery_date_str, "%d %B %Y")
+        
+
+        today = datetime.now()
+        delta = delivery_date - today
+
+        if delta.days < 0:
+            delivery_date = datetime.strptime(f"{day} {month} {year + 1}", "%d %B %Y")
+            delta = delivery_date - today
+        
+        return f"{delta.days} days"
     return None
 
 
@@ -80,11 +116,10 @@ def get_image_url(soup):
 
 def insert_data(title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url):
     try:
-        # Check if the redirect_link already exists in the table
+  
         db_cursor.execute("SELECT redirect_link FROM Cases WHERE redirect_link = %s", (redirect_link,))
         existing_link = db_cursor.fetchone()
-        
-        # If the link doesn't exist, proceed with the insertion
+
         if not existing_link:
             sql = "INSERT INTO Cases (title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
             values = (title, redirect_link, platform_id, platform_name, price, rating, delivery_time, image_url)
@@ -113,7 +148,7 @@ def mobiles(url):
             
             if r.status_code == 200:
                   soup = BeautifulSoup(r.content, 'lxml')
-                  productlist = soup.find_all('h2', class_='a-size-mini a-spacing-none a-color-base s-line-clamp-2')
+                  productlist = soup.find_all('h2', class_='a-size-mini a-spacing-none a-color-base s-line-clamp-4')
                   for item in productlist:
                     for link in item.find_all('a', class_='a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal', href=True):
                         if (link not in productlinks):
@@ -143,13 +178,14 @@ def scrape_mobile_data(productlink):
             delivery_time = get_deliverytime(soup)
             image_url = get_image_url(soup)
 
-            if all([title, rating,price, delivery_time, image_url,]):
+            if all([title, rating,price, delivery_time, image_url]):
                 print("Title:", title)
                 print("Rating:", rating)
                 print("Price:", price)
                 print("Delivery Time:", delivery_time)
                 print("Image URL:", image_url)
-                insert_data(title, productlink, 1, "Amazon", price, rating, delivery_time, image_url)
+                truncated_url = productlink[:255 - 3] + '...'
+                insert_data(title, truncated_url, 1, "Amazon", price, rating, delivery_time, image_url)
                 break
             else:
                 continue
@@ -159,15 +195,15 @@ def scrape_mobile_data(productlink):
     
 
 def main():
-    # Generate a random number of pages between 1 and 401
+    
     num_pages = random.randint(1, 21)
     
     for _ in range(num_pages):
         i = random.randint(1, num_pages)
         if i == 1:
-            url = "https://www.amazon.in/s?k=mobile+cases&crid=1LCAZ0U6EBH5L&sprefix=mobile+cases%2Caps%2C217&ref=nb_sb_noss_1"
+            url = "https://www.amazon.in/s?rh=n%3A21529679031%2Cp_72%3A4-&content-id=amzn1.sym.601891be-591c-4695-b226-dfc2707ab366&pd_rd_r=a273aed9-5831-432f-ae78-5b39cc839d1c&pd_rd_w=EpiYr&pd_rd_wg=5RY7Z&pf_rd_p=601891be-591c-4695-b226-dfc2707ab366&pf_rd_r=AKX1HDX1HEGC88CTJ4X1&ref=Oct_d_otopr_S"
         else:
-            url = f"https://www.amazon.in/s?k=mobile+cases&page=2&xpid=oxqU9gahrHCVi&crid=1LCAZ0U6EBH5L&qid=1715258118&refresh=1&sprefix=mobile+cases%2Caps%2C217&ref=sr_pg_{i}"
+            url = f"https://www.amazon.in/s?i=electronics&rh=n%3A21529679031%2Cp_72%3A1318476031&page={i}&content-id=amzn1.sym.601891be-591c-4695-b226-dfc2707ab366&pd_rd_r=a273aed9-5831-432f-ae78-5b39cc839d1c&pd_rd_w=EpiYr&pd_rd_wg=5RY7Z&pf_rd_p=601891be-591c-4695-b226-dfc2707ab366&pf_rd_r=AKX1HDX1HEGC88CTJ4X1&qid=1716480446&ref=sr_pg_{i}"
         print(url)
         print(i)
         mobiles(url)
@@ -175,5 +211,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 

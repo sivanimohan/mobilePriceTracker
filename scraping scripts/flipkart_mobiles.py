@@ -2,8 +2,11 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import datetime
 import random
 import mysql.connector
+from datetime import datetime
+import re
 
 
 db_connection = mysql.connector.connect(
@@ -31,22 +34,22 @@ proxies = [
 ]
 
 user_agents = [
-    # Mozilla Firefox
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:90.0) Gecko/20100101 Firefox/90.0",
-    # Google Chrome
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-    # Apple Safari
+
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0.2 Safari/605.1.15",
-    # Microsoft Edge
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 Edg/98.0.1108.58",
-    # Opera
+
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 OPR/85.0.4344.41",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 OPR/85.0.4344.41",
-    # Internet Explorer
+
     "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko",
-    # Add more user agents as needed
+
 ]
 
 
@@ -69,13 +72,44 @@ def get_rating(soup):
 def get_price(soup):
     pr = soup.find('div', class_='Nx9bqj CxhGGd')
     if pr:
-        return pr.text.strip()
+        price_text = pr.text.strip()
+        p = price_text.replace('₹', '')
+        return p
     return None
+
 def get_deliverytime(soup):
     de = soup.find('span', class_='Y8v7Fl')
     if de:
-        return de.text.strip()
+        delivery_text = de.text.strip()
+        return convert_to_days_from_today(delivery_text)
     return None
+
+def convert_to_days_from_today(delivery_text):
+
+    date_pattern = re.compile(r'(\d{2}) (\w+), \w+')
+    match = date_pattern.search(delivery_text)
+    if match:
+     
+        day = int(match.group(1))
+        month = match.group(2)
+        year = datetime.now().year 
+        
+
+        delivery_date_str = f"{day} {month} {year}"
+        delivery_date = datetime.strptime(delivery_date_str, "%d %B %Y")
+        
+ 
+        today = datetime.now()
+        delta = delivery_date - today
+     
+        if delta.days < 0:
+            delivery_date = datetime.strptime(f"{day} {month} {year + 1}", "%d %B %Y")
+            delta = delivery_date - today
+        
+        return f"{delta.days} days"
+    return None
+
+
 
 
 def get_condition(soup):
@@ -142,6 +176,9 @@ def mobiles(url):
             elif r.status_code == 500:
                 print("500 Service Unavailable - Retrying...")
                 time.sleep(2)
+            elif r.status_code == 429:
+                print("429 Service Unavailable - Retrying...")
+                time.sleep(2)
             else:
                 r.raise_for_status()
 
@@ -185,14 +222,14 @@ def scrape_mobile_data(productlink):
     
 
 def main():
-    num_pages = random.randint(1, 412)
+    num_pages = random.randint(1, 41)
     
     for _ in range(num_pages):
         i = random.randint(1, num_pages)
         if i == 1:
-            url = "https://www.flipkart.com/search?q=mobile+phones&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=off&as=off"
+            url = "https://www.flipkart.com/mobiles/pr?sid=tyy%2C4io&q=mobiles&otracker=categorytree&sort=popularity"
         else:
-            url = f"https://www.flipkart.com/search?q=mobile+phones&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=off&as=off&page={i}"
+            url = f"https://www.flipkart.com/mobiles/pr?sid=tyy%2C4io&q=mobiles&otracker=categorytree&sort=popularity&page={i}"
         print(url)
         print(i)
         mobiles(url)

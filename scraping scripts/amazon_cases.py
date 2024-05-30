@@ -68,40 +68,40 @@ def get_price(soup):
 
 
 def get_deliverytime(soup):
-    de = soup.find('div', class_='a-spacing-base', id='mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE')
+    de = soup.find('span', attrs={'data-csa-c-delivery-time': True})
     if de:
         delivery_text = de.text.strip()
-        
-        
+
         delivery_text = re.sub(r'\bFREE\s*delivery\b', '', delivery_text, flags=re.IGNORECASE).strip()
         delivery_text = re.sub(r'\bDetails\b', '', delivery_text, flags=re.IGNORECASE).strip()
-        
+        delivery_text = re.sub(r'Order within.*?\d{1,2}.*?\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?).*?\.', '', delivery_text, flags=re.IGNORECASE).strip()
+
+        print(delivery_text)
         return convert_to_days_from_today(delivery_text)
     return None
 
 def convert_to_days_from_today(delivery_text):
   
-    date_pattern = re.compile(r'\b(\w+), (\d{2}) (\w+)\b')
+    date_pattern = re.compile(r'\b(\w+), (\d{1,2}) (\w+)\b')
     match = date_pattern.search(delivery_text)
     if match:
-      
         day = int(match.group(2))
         month = match.group(3)
         year = datetime.now().year
         
-
-        delivery_date_str = f"{day} {month} {year}"
-        delivery_date = datetime.strptime(delivery_date_str, "%d %B %Y")
+        try:
+            delivery_date = datetime.strptime(f"{day} {month} {year}", "%d %B %Y")
+        except ValueError:
+            return None
         
-
         today = datetime.now()
-        delta = delivery_date - today
-
-        if delta.days < 0:
-            delivery_date = datetime.strptime(f"{day} {month} {year + 1}", "%d %B %Y")
-            delta = delivery_date - today
+        delta = (delivery_date - today).days
         
-        return f"{delta.days} days"
+        if delta < 0:
+            delivery_date = datetime.strptime(f"{day} {month} {year + 1}", "%d %B %Y")
+            delta = (delivery_date - today).days
+        
+        return f"{delta} days"
     return None
 
 
@@ -211,7 +211,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
 

@@ -74,7 +74,8 @@ def get_deliverytime(soup):
 
         delivery_text = re.sub(r'\bFREE\s*delivery\b', '', delivery_text, flags=re.IGNORECASE).strip()
         delivery_text = re.sub(r'\bDetails\b', '', delivery_text, flags=re.IGNORECASE).strip()
-        delivery_text = re.sub(r'Order within.*?\d{1,2}.*?\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?).*?\.', '', delivery_text, flags=re.IGNORECASE).strip()
+        delivery_text = re.sub(r'on orders dispatched by Amazon.*?\.', '', delivery_text, flags=re.IGNORECASE).strip()
+        
 
         print(delivery_text)
         return convert_to_days_from_today(delivery_text)

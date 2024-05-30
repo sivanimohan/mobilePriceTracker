@@ -60,11 +60,15 @@ def get_rating(soup):
         return rg.text.strip()
     return None
 
+
+
 def get_price(soup):
     pr = soup.find('span', class_='a-price-whole')
     if pr:
-        return pr.text.strip()
+        price_text = re.sub(r'[^\d.]', '', pr.text.strip())
+        return price_text
     return None
+
 
 
 def get_deliverytime(soup):
@@ -224,7 +228,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
 
